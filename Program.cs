@@ -43,12 +43,41 @@ app.MapPost("/administradores/login", ([FromBody] LoginDTO loginDTO, IAdministra
 #endregion
 
 #region Veiculos
-app.MapPost("/veiculos", ([FromBody] VeiculoDTO VeiculoDTO, IVeiculoServico veiculoServico) =>
+ErrosValidacao validaDTO(VeiculoDTO veiculoDTO)
 {
+    var validacao = new ErrosValidacao();
+    validacao.mensagens = new List<string>();
+
+    if (string.IsNullOrEmpty(veiculoDTO.Nome))
+    {
+        validacao.mensagens.Add("O campo Nome é obrigatório.");
+    }
+    if (string.IsNullOrEmpty(veiculoDTO.Marca))
+    {
+        validacao.mensagens.Add("O campo Marca é obrigatório.");
+    }
+    if (veiculoDTO.Ano < 1950)
+    {
+        validacao.mensagens.Add("O campo Ano precisa ser maior que 1950.");
+    }
+
+    return validacao;
+
+}
+
+
+app.MapPost("/veiculos", ([FromBody] VeiculoDTO veiculoDTO, IVeiculoServico veiculoServico) =>
+{
+    var validacao = validaDTO(veiculoDTO);
+    if (validacao.mensagens.Count > 0)
+    {
+        return Results.BadRequest(validacao);
+    }
+
     var veiculo = new Veiculo {
-        Nome = VeiculoDTO.Nome,
-        Marca = VeiculoDTO.Marca,
-        Ano = VeiculoDTO.Ano
+        Nome = veiculoDTO.Nome,
+        Marca = veiculoDTO.Marca,
+        Ano = veiculoDTO.Ano
     };
     veiculoServico.Incluir(veiculo);
     return Results.Created($"/veiculo/{veiculo.Id}", veiculo);
@@ -70,6 +99,12 @@ app.MapGet("/veiculos/{id}", ([FromRoute]int id,  IVeiculoServico veiculoServico
 
 app.MapPut("/veiculos/{id}", ([FromRoute] int id, [FromBody] VeiculoDTO veiculoDTO, IVeiculoServico veiculoServico) =>
 {
+    var validacao = validaDTO(veiculoDTO);
+    if (validacao.mensagens.Count > 0)
+    {
+        return Results.BadRequest(validacao);
+    }
+
     var veiculo = veiculoServico.BuscarPorId(id);
     if (veiculo == null) return Results.NotFound();
 
