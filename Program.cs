@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using minimal_api.Dominio.DTOs;
 using minimal_api.Dominio.Entidades;
+using minimal_api.Dominio.Enuns;
 using minimal_api.Dominio.Interfaces;
 using minimal_api.Dominio.ModelsViews;
 using minimal_api.Dominio.Servicos;
@@ -40,6 +41,75 @@ app.MapPost("/administradores/login", ([FromBody] LoginDTO loginDTO, IAdministra
     }
     return Results.Unauthorized();
 }).WithTags("Administradores");
+
+
+app.MapPost("/administradores", ([FromBody] AdministradorDTO administradorDTO, IAdministradorServico administradorServico) =>
+{
+    var validacao = new ErrosValidacao();
+    validacao.mensagens = new List<string>();
+
+    if (string.IsNullOrEmpty(administradorDTO.Email))
+    {
+        validacao.mensagens.Add("O campo Email é obrigatório.");
+    }
+    if (string.IsNullOrEmpty(administradorDTO.Senha))
+    {
+        validacao.mensagens.Add("O campo Senha é obrigatório.");
+    }
+    if(administradorDTO.Perfil == null)
+    {
+        validacao.mensagens.Add("O campo Perfil é obrigatório.");
+    }
+    if (validacao.mensagens.Count > 0)
+    {
+        return Results.BadRequest(validacao);
+    }
+
+    var administrador = new Administrador {
+        Email = administradorDTO.Email,
+        Senha = administradorDTO.Senha,
+        Perfil = administradorDTO.Perfil.ToString() ?? Perfil.Editor.ToString(),
+    };
+    administradorServico.Incluir(administrador);
+    return Results.Created($"/administrador/{administrador.Id}", new AdministradoresModelView
+        {
+            Id = administrador.Id,
+            Email = administrador.Email,
+            Perfil = administrador.Perfil,
+        });
+}).WithTags("Administradores");
+
+
+app.MapGet("/administrador/{id}", ([FromRoute]int id, IAdministradorServico administradorServico) =>
+{
+    var administrador = administradorServico.BuscarPorId(id);
+    if (administrador == null) return Results.NotFound();
+    return Results.Ok(new AdministradoresModelView
+        {
+            Id = administrador.Id,
+            Email = administrador.Email,
+            Perfil = administrador.Perfil,
+        });
+
+}).WithTags("Administradores");
+
+
+app.MapGet("/administradores", ([FromQuery] int? pagina, IAdministradorServico administradorServico) =>
+{
+    var adms = new List<AdministradoresModelView>();
+    var administradores = administradorServico.Todos(pagina);
+    foreach (var adm in administradores)
+    {
+        adms.Add(new AdministradoresModelView
+        {
+            Id = adm.Id,
+            Email = adm.Email,
+            Perfil = adm.Perfil,
+        });
+    }
+    return Results.Ok(adms);
+}).WithTags("Administradores");
+
 #endregion
 
 #region Veiculos
@@ -83,19 +153,22 @@ app.MapPost("/veiculos", ([FromBody] VeiculoDTO veiculoDTO, IVeiculoServico veic
     return Results.Created($"/veiculo/{veiculo.Id}", veiculo);
 }).WithTags("Veiculos");
 
+
 app.MapGet("/veiculos", ([FromQuery] int? pagina, [FromQuery] string? nome, [FromQuery] string? marca, [FromQuery] int? ano, IVeiculoServico veiculoServico) =>
 {
     var veiculos = veiculoServico.Todos(pagina, nome, marca, ano);
     return Results.Ok(veiculos);
 }).WithTags("Veiculos");
 
-app.MapGet("/veiculos/{id}", ([FromRoute]int id,  IVeiculoServico veiculoServico) =>
+
+app.MapGet("/veiculo/{id}", ([FromRoute]int id,  IVeiculoServico veiculoServico) =>
 {
     var veiculo = veiculoServico.BuscarPorId(id);
     if (veiculo == null) return Results.NotFound();
     return Results.Ok(veiculo);
 
 }).WithTags("Veiculos");
+
 
 app.MapPut("/veiculos/{id}", ([FromRoute] int id, [FromBody] VeiculoDTO veiculoDTO, IVeiculoServico veiculoServico) =>
 {
@@ -117,6 +190,7 @@ app.MapPut("/veiculos/{id}", ([FromRoute] int id, [FromBody] VeiculoDTO veiculoD
     return Results.Ok(veiculo);
 
 }).WithTags("Veiculos");
+
 
 app.MapDelete("/veiculos/{id}", ([FromRoute]int id,  IVeiculoServico veiculoServico) =>
 {
